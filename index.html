@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Track satellites live on a 3D globe using CelesTrak data and Satellite.js.">
+  <title>Zelqor | Satellite Mission Control</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Libraries (pinned versions). "defer" = run in order after the page loads. -->
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/satellite.js@4.1.3/dist/satellite.min.js"></script>
+  <script defer src="script.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(-30 12 12)"/>
+      </svg>
+      <div><strong>Zelqor</strong><small>Mission Control</small></div>
+    </div>
+    <nav aria-label="Main">
+      <ul>
+        <li><a class="active" href="#tracker">Tracker</a></li>
+        <li><a href="#telemetry">Telemetry</a></li>
+        <li><a href="#orbit">Orbit data</a></li>
+        <li><a href="#satellites">Satellites</a></li>
+        <li><a href="#log">Mission log</a></li>
+      </ul>
+    </nav>
+    <div class="side-foot">
+      <p>CelesTrak link <b id="sideLink" data-state="STANDBY">STANDBY</b></p>
+      <p class="mono" id="utc">UTC --:--:--</p>
+    </div>
+  </aside>
+
+  <div class="content">
+    <!-- TOP BAR: menu button, search with autocomplete, link status -->
+    <header class="topbar">
+      <button class="btn ghost menu-btn" id="menuBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar">☰</button>
+      <form class="search" id="searchForm" role="search" autocomplete="off">
+        <label class="sr" for="q">Search satellite by name or NORAD ID</label>
+        <input id="q" type="text" placeholder="Search name or NORAD ID (e.g. ISS, 25544)"
+               role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list">
+        <button class="btn primary" type="submit">Track</button>
+        <ul class="suggest" id="suggest" role="listbox" aria-label="Suggestions" hidden></ul>
+      </form>
+      <span class="chip" id="linkChip" data-state="STANDBY">STANDBY</span>
+    </header>
+
+    <main>
+      <!-- 3D GLOBE -->
+      <section class="card" id="tracker" aria-labelledby="satName">
+        <div class="card-head">
+          <div><p class="label">Now tracking</p><h1 id="satName">No satellite selected</h1></div>
+          <div class="actions">
+            <div class="speed" role="group" aria-label="Time speed">
+              <button class="btn ghost on" type="button" data-scale="1" aria-pressed="true">Live</button>
+              <button class="btn ghost" type="button" data-scale="10" aria-pressed="false">10×</button>
+              <button class="btn ghost" type="button" data-scale="60" aria-pressed="false">60×</button>
+              <button class="btn ghost" type="button" data-scale="300" aria-pressed="false">300×</button>
+            </div>
+            <button class="btn ghost" id="followBtn" type="button" aria-pressed="false">Follow</button>
+            <button class="btn ghost" id="resetBtn" type="button">Reset view</button>
+          </div>
+        </div>
+        <div class="globe-wrap" id="globe">
+          <div class="zoom-btns">
+            <button class="btn ghost" id="zoomIn" type="button" aria-label="Zoom in">+</button>
+            <button class="btn ghost" id="zoomOut" type="button" aria-label="Zoom out">−</button>
+          </div>
+          <p class="globe-tag mono" id="globeTag" aria-hidden="true"></p>
+          <canvas id="canvas" tabindex="0" aria-label="3D globe. Drag or use arrow keys to rotate, scroll or plus and minus to zoom."></canvas>
+        </div>
+        <p class="hint">Drag to rotate. Scroll, pinch with two fingers, or use the + and − buttons to zoom. Violet ring = orbit path. The 3D satellite sits inside a lime ring. Green dot = point on the ground below it. White dots = cities. Use 10×, 60× or 300× to speed up time and watch it move.</p>
+      </section>
+
+      <!-- LIVE TELEMETRY -->
+      <section class="card" id="telemetry" aria-labelledby="telTitle">
+        <div class="card-head">
+          <h2 id="telTitle">Live telemetry</h2>
+          <span class="pill" id="trackPill" data-tone="idle">NO FIX</span>
+        </div>
+        <dl class="reads">
+          <div class="read"><dt>Latitude</dt><dd id="tLat">--</dd></div>
+          <div class="read"><dt>Longitude</dt><dd id="tLon">--</dd></div>
+          <div class="read"><dt>Altitude</dt><dd id="tAlt">--</dd></div>
+          <div class="read"><dt>Velocity</dt><dd id="tVel">--</dd></div>
+          <div class="read wide"><dt>Ground speed</dt><dd id="tKmh">--</dd></div>
+          <div class="read wide"><dt>Nearest city</dt><dd id="tNear">--</dd></div>
+        </dl>
+      </section>
+
+      <!-- ORBIT INFO -->
+      <section class="card" id="orbit" aria-labelledby="orbTitle">
+        <div class="card-head">
+          <h2 id="orbTitle">Orbit data</h2>
+          <span class="pill" id="agePill" data-tone="idle">NO DATA</span>
+        </div>
+        <dl class="reads">
+          <div class="read"><dt>NORAD ID</dt><dd id="oId">--</dd></div>
+          <div class="read"><dt>Inclination</dt><dd id="oInc">--</dd></div>
+          <div class="read"><dt>Period</dt><dd id="oPer">--</dd></div>
+          <div class="read"><dt>Eccentricity</dt><dd id="oEcc">--</dd></div>
+          <div class="read"><dt>Perigee</dt><dd id="oPerigee">--</dd></div>
+          <div class="read"><dt>Apogee</dt><dd id="oApogee">--</dd></div>
+          <div class="read wide"><dt>TLE epoch</dt><dd id="oEpoch">--</dd></div>
+        </dl>
+      </section>
+
+      <!-- POPULAR SATELLITES -->
+      <section class="card" id="satellites" aria-labelledby="satTitle">
+        <h2 id="satTitle">Popular satellites</h2>
+        <div class="sat-list" id="satList"></div>
+        <p class="hint">Orbit data comes live from CelesTrak. Positions are calculated in your browser with Satellite.js (SGP4), so they are very accurate estimates, not GPS fixes.</p>
+      </section>
+
+      <!-- TERMINAL LOG -->
+      <section class="card" id="log" aria-labelledby="logTitle">
+        <h2 id="logTitle">Mission log</h2>
+        <pre class="terminal" id="logBox" role="log" aria-live="off" tabindex="0">&gt; waiting for first command...</pre>
+      </section>
+    </main>
+  </div>
+</div>
+</body>
+</html>
